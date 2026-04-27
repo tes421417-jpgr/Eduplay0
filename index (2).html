@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="theme-color" content="#0a0f1c">
+    <title>EduPlay Infinity · Conta + Jogo Infinito</title>
+    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22EduPlay%20Infinity%22,%22short_name%22:%22EduPlay%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%230a0f1c%22,%22theme_color%22:%22%23facc15%22,%22icons%22:[{%22src%22:%22https://cdn-icons-png.flaticon.com/512/883/883827.png%22,%22sizes%22:%22192x192%22,%22type%22:%22image/png%22}]}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at 10% 20%, #0a0f1c, #030712);
+            color: #f1f5f9;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        /* Splash screen */
+        #splash {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: radial-gradient(circle at center, #1e293b, #0a0f1c);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 1000;
+            transition: opacity 0.8s ease;
+        }
+        #splash.hidden { opacity: 0; pointer-events: none; }
+        .splash-logo { font-size: 4rem; color: #facc15; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); text-shadow: 0 0 0 #facc15; } 100% { transform: scale(1.1); text-shadow: 0 0 20px #facc15; } }
+        /* Telas de autenticação */
+        .auth-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            backdrop-filter: blur(8px);
+        }
+        .auth-card {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(16px);
+            border-radius: 48px;
+            padding: 32px 24px;
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid rgba(250,204,21,0.4);
+            box-shadow: 0 25px 40px rgba(0,0,0,0.5);
+            animation: fadeSlideUp 0.5s ease;
+        }
+        @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        .auth-title { font-size: 2rem; font-weight: 800; text-align: center; margin-bottom: 24px; color: #facc15; }
+        .input-group { margin-bottom: 20px; }
+        .input-group input {
+            width: 100%;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 60px;
+            padding: 14px 20px;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .input-group input:focus { border-color: #facc15; box-shadow: 0 0 0 2px #facc1540; }
+        .auth-btn {
+            background: linear-gradient(105deg, #facc15, #f97316);
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 60px;
+            font-weight: bold;
+            font-size: 1rem;
+            color: #0f172a;
+            margin-top: 8px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .auth-btn:hover { transform: scale(0.98); }
+        .switch-text { text-align: center; margin-top: 20px; font-size: 0.9rem; color: #94a3b8; cursor: pointer; }
+        .switch-text span { color: #facc15; font-weight: bold; }
+        .error-msg { color: #ef4444; font-size: 0.8rem; margin-top: 8px; text-align: center; }
+        /* Permissão modal */
+        .perm-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1100;
+        }
+        .perm-card {
+            background: #1e293b;
+            border-radius: 32px;
+            padding: 28px;
+            max-width: 280px;
+            text-align: center;
+            animation: bounceIn 0.3s;
+        }
+        @keyframes bounceIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .perm-card i { font-size: 3rem; color: #facc15; margin-bottom: 12px; }
+        .perm-card button { background: #22c55e; border: none; padding: 10px 20px; border-radius: 40px; margin-top: 16px; font-weight: bold; cursor: pointer; }
+        /* Jogo (estilos completos) */
+        .game-container { display: none; }
+        .game-container.active { display: block; }
+        .header {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid rgba(250, 204, 21, 0.3);
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            position: sticky;
+            top: 0;
+            z-index: 20;
+        }
+        .logo-area { display: flex; align-items: center; gap: 12px; }
+        .logo-area i { font-size: 28px; color: #facc15; filter: drop-shadow(0 0 5px #facc15); animation: bounceSoft 2s infinite ease; }
+        @keyframes bounceSoft { 0%,100%{ transform: translateY(0); } 50%{ transform: translateY(-3px); } }
+        .stats { display: flex; gap: 15px; background: rgba(0,0,0,0.5); padding: 6px 16px; border-radius: 60px; backdrop-filter: blur(4px); }
+        .stat-item { display: flex; align-items: center; gap: 8px; font-weight: 600; background: #1e293b80; padding: 4px 12px; border-radius: 32px; }
+        .container { padding: 20px 18px; max-width: 720px; margin: 0 auto; }
+        .card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border-radius: 32px;
+            padding: 24px 20px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.4);
+            transition: transform 0.2s ease;
+        }
+        .card:hover { transform: translateY(-3px); border-color: rgba(250,204,21,0.5); }
+        button { border: none; font-weight: 700; border-radius: 60px; cursor: pointer; transition: all 0.2s ease; font-family: 'Inter', sans-serif; font-size: 1rem; }
+        .btn-primary { background: linear-gradient(105deg, #22c55e, #16a34a); color: white; box-shadow: 0 6px 14px rgba(34,197,94,0.3); padding: 14px 0; width: 100%; font-size: 1.1rem; }
+        .btn-primary:hover { transform: scale(0.98); }
+        .btn-secondary { background: #3b82f6; color: white; padding: 12px 0; width: 100%; }
+        .btn-secondary:hover { background: #2563eb; transform: translateY(-2px); }
+        .option-btn, .fill-submit-btn {
+            background: #1e293b; color: #f1f5f9; width: 100%; text-align: left; padding: 14px 18px;
+            margin-top: 12px; border-radius: 60px; font-weight: 500; transition: all 0.2s;
+            border: 1px solid #334155; cursor: pointer;
+        }
+        .option-btn:hover, .fill-submit-btn:hover { background: #2d3a4e; transform: translateX(6px); border-color: #facc15; }
+        .fill-input { background: #0f172a; border: 1px solid #facc15; border-radius: 60px; padding: 14px 18px; width: 100%; color: white; font-size: 1rem; margin-top: 12px; outline: none; text-align: center; }
+        .toast-feedback {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: #0f172ae0; backdrop-filter: blur(16px); padding: 12px 28px; border-radius: 60px;
+            font-weight: bold; color: white; z-index: 200; font-size: 0.9rem; pointer-events: none;
+            border-left: 5px solid #22c55e; box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            animation: fadeUp 0.3s ease; display: flex; align-items: center; gap: 10px;
+        }
+        @keyframes fadeUp { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        .gamepass-card { background: linear-gradient(135deg, #facc1530, #f9731630); border-left: 4px solid #facc15; }
+        .paypal-highlight { background: #00308720; border-radius: 28px; padding: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; margin-top: 12px; }
+        .rank-list { list-style: none; margin: 16px 0; max-height: 360px; overflow-y: auto; }
+        .rank-list li { background: #0f172a80; margin: 8px 0; padding: 12px 18px; border-radius: 50px; display: flex; align-items: center; gap: 12px; font-weight: 500; backdrop-filter: blur(4px); }
+        .rank-list i { width: 28px; color: #facc15; }
+        .hidden { display: none; }
+        .flex-btns { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+        input, select { background: #0f172a; border: 1px solid #334155; border-radius: 60px; padding: 12px 18px; color: white; font-family: 'Inter', sans-serif; width: 100%; margin-top: 8px; outline: none; }
+        .level-progress { background: #0f172a; border-radius: 20px; height: 14px; margin: 12px 0; overflow: hidden; }
+        .level-fill { background: linear-gradient(90deg, #facc15, #f97316); width: 0%; height: 100%; border-radius: 20px; transition: width 0.4s; }
+        .floating-coin { position: fixed; pointer-events: none; font-size: 2rem; z-index: 300; animation: floatUp 1s ease-out forwards; }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-100px) scale(1.5); } }
+        canvas#particleCanvas { position: fixed; top:0; left:0; width:100%; height:100%; pointer-events: none; z-index: 999; }
+        .progress-text { font-size: 0.9rem; background: #33415570; display: inline-block; padding: 4px 14px; border-radius: 60px; margin-bottom: 18px; }
+        .hint-btn { background: #facc15; color: #0f172a; margin-top: 12px; padding: 8px; font-size: 0.8rem; width: auto; display: inline-block; cursor: pointer; border-radius: 60px; }
+        .firework { position: fixed; width: 8px; height: 8px; border-radius: 50%; pointer-events: none; animation: explode 1s ease-out forwards; z-index: 1000; }
+        @keyframes explode { 0% { transform: scale(0); opacity: 1; } 100% { transform: scale(15); opacity: 0; } }
+        .difficulty-badge { background: #f97316; border-radius: 20px; padding: 2px 10px; font-size: 0.7rem; display: inline-block; margin-left: 10px; }
+        .type-badge { background: #3b82f6; border-radius: 20px; padding: 2px 10px; font-size: 0.7rem; margin-left: 8px; }
+        .logout-btn { background: #ef4444; padding: 8px 16px; border-radius: 40px; font-size: 0.8rem; cursor: pointer; transition: 0.2s; }
+        .logout-btn:hover { background: #dc2626; transform: scale(0.95); }
+        @media (max-width: 480px) { .stats { gap: 8px; padding: 5px 12px;} .stat-item { padding: 2px 10px; font-size: 0.85rem;} }
+    </style>
+</head>
+<body>
+<!-- Splash Screen -->
+<div id="splash">
+    <i class="fas fa-infinity splash-logo"></i>
+    <h2 style="margin-top: 20px; color:#facc15;">EduPlay Infinity</h2>
+    <p style="margin-top: 8px;">Carregando universo de perguntas...</p>
+</div>
+
+<!-- Tela de Autenticação -->
+<div id="authScreen">
+    <div class="auth-container">
+        <div class="auth-card" id="loginCard">
+            <div class="auth-title"><i class="fas fa-gamepad"></i> EduPlay</div>
+            <div class="input-group"><input type="email" id="loginEmail" placeholder="E-mail" autocomplete="email"></div>
+            <div class="input-group"><input type="password" id="loginPassword" placeholder="Senha" autocomplete="current-password"></div>
+            <button class="auth-btn" id="loginBtn">Entrar</button>
+            <div class="switch-text">Não tem conta? <span id="goToRegister">Criar conta</span></div>
+            <div id="loginError" class="error-msg"></div>
+        </div>
+        <div class="auth-card hidden" id="registerCard">
+            <div class="auth-title"><i class="fas fa-user-plus"></i> Criar Conta</div>
+            <div class="input-group"><input type="text" id="regName" placeholder="Nome de usuário" autocomplete="off"></div>
+            <div class="input-group"><input type="email" id="regEmail" placeholder="E-mail"></div>
+            <div class="input-group"><input type="password" id="regPassword" placeholder="Senha"></div>
+            <button class="auth-btn" id="registerBtn">Registrar</button>
+            <div class="switch-text">Já tem conta? <span id="goToLogin">Fazer login</span></div>
+            <div id="regError" class="error-msg"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Jogo principal -->
+<div id="gameApp" class="game-container">
+    <div class="header">
+        <div class="logo-area"><i class="fas fa-infinity"></i><span style="font-weight:800;">EduPlay Infinito</span><span style="font-size:0.7rem; background:#22c55e30; padding:2px 8px; border-radius:50px;">geração procedural</span></div>
+        <div class="stats">
+            <div class="stat-item"><i class="fas fa-chart-line"></i> Nível <span id="level">1</span></div>
+            <div class="stat-item"><i class="fas fa-coins"></i> <span id="coins">0</span></div>
+            <div id="premiumIcon" class="stat-item" style="display: none;"><i class="fas fa-crown"></i> Premium</div>
+            <div class="logout-btn" id="logoutGameBtn"><i class="fas fa-sign-out-alt"></i> Sair</div>
+        </div>
+    </div>
+    <div class="container">
+        <div id="homeSection">
+            <div class="card"><i class="fas fa-infinity" style="font-size: 2rem; color:#22c55e;"></i><h2>Desafio Infinito!</h2><p>Múltipla escolha, verdadeiro/falso e preenchimento. Suba de nível e a dificuldade aumenta!</p><div class="level-progress"><div class="level-fill" id="levelFill"></div></div></div>
+            <div class="card">
+                <label><i class="fas fa-user"></i> Seu nome:</label><input type="text" id="playerNameInput" placeholder="Ex: Mestre" maxlength="20">
+                <div style="display: flex; gap: 15px; margin-top: 15px;"><button class="btn-primary" id="startQuizBtnHome"><i class="fas fa-play"></i> Começar Quiz</button><button class="btn-secondary" id="showRankBtnHome"><i class="fas fa-trophy"></i> Ranking</button></div>
+                <div style="margin-top: 15px;"><label><i class="fas fa-list-ol"></i> Perguntas por quiz:</label><select id="quizLengthSelect"><option value="5">5</option><option value="10" selected>10</option><option value="15">15</option><option value="20">20</option></select></div>
+                <div class="center" style="margin-top: 10px; font-size:0.8rem;"><i class="fas fa-chart-line"></i> Dificuldade progressiva com nível!</div>
+            </div>
+            <div class="card gamepass-card"><i class="fas fa-crown" style="font-size:2rem; color:#facc15;"></i><div><strong>Game Pass</strong><br><span id="premiumStatusText">+50% moedas + Dica por pergunta</span></div>
+                <div class="paypal-highlight"><span><i class="fab fa-paypal"></i> Pagar: t88952204@gmail.com</span><button id="copyPaypalBtn" class="hint-btn" style="background:#facc15;">Copiar</button></div>
+                <button id="activatePremiumBtn" class="btn-primary" style="background:linear-gradient(105deg,#facc15,#f97316);">Ativar Game Pass (demo)</button>
+            </div>
+        </div>
+        <div id="quizSection" class="hidden">
+            <div class="card"><div class="progress-text"><span id="qCurrent">1</span>/<span id="qTotal">10</span> <span id="difficultyBadge" class="difficulty-badge"></span> <span id="typeBadge" class="type-badge"></span></div>
+            <h3 id="questionText">Carregando...</h3><div id="optionsContainer"></div><div id="fillContainer" class="hidden"><input type="text" id="fillAnswer" class="fill-input" placeholder="Digite sua resposta..."><button id="submitFillBtn" class="fill-submit-btn"><i class="fas fa-check"></i> Responder</button></div>
+            <div id="premiumHintArea" class="center" style="margin-top:12px;"></div>
+            <button id="exitQuizBtn" style="background:#ef4444; margin-top:16px; padding:12px;"><i class="fas fa-times"></i> Sair</button></div>
+        </div>
+        <div id="resultSection" class="hidden">
+            <div class="card center"><i class="fas fa-chart-simple" style="font-size:3rem; color:#22c55e;"></i><h2>Quiz Finalizado!</h2><p id="finalScoreText">Acertos: 0/0</p><p>Moedas: <span id="coinsEarned">0</span></p>
+            <div class="flex-btns"><button id="restartQuizBtn" class="btn-primary">Novo Quiz</button><button id="backHomeFromResult" class="btn-secondary">Início</button></div></div>
+        </div>
+        <div id="rankSection" class="hidden">
+            <div class="card"><h2><i class="fas fa-globe"></i> Ranking Global</h2><ul class="rank-list" id="rankList"></ul><div class="flex-btns"><button id="refreshRankBtn" class="btn-secondary">Atualizar</button><button id="backHomeFromRank" class="btn-secondary">Voltar</button></div></div>
+        </div>
+    </div>
+    <canvas id="particleCanvas"></canvas>
+</div>
+
+<script>
+    // ------------------- SISTEMA DE AUTENTICAÇÃO -------------------
+    let currentUser = null;
+    let usersDB = {};
+    
+    function loadUsers() {
+        let stored = localStorage.getItem("eduplay_users_v2");
+        if(stored) { try { usersDB = JSON.parse(stored); } catch(e){} }
+        if(Object.keys(usersDB).length === 0) {
+            usersDB["demo@eduplay.com"] = {
+                email: "demo@eduplay.com",
+                name: "DemoPlayer",
+                password: "123456",
+                coins: 150,
+                level: 1,
+                premium: false,
+                answeredIds: [],
+                lastLogin: Date.now()
+            };
+            saveUsers();
+        }
+    }
+    function saveUsers() { localStorage.setItem("eduplay_users_v2", JSON.stringify(usersDB)); }
+    
+    function registerUser(email, password, name) {
+        if(usersDB[email]) return { success: false, error: "E-mail já cadastrado." };
+        if(!email || !password || !name) return { success: false, error: "Preencha todos os campos." };
+        usersDB[email] = {
+            email: email,
+            name: name,
+            password: password,
+            coins: 0,
+            level: 1,
+            premium: false,
+            answeredIds: []
+        };
+        saveUsers();
+        return { success: true };
+    }
+    
+    function loginUser(email, password) {
+        let user = usersDB[email];
+        if(!user || user.password !== password) return { success: false, error: "E-mail ou senha incorretos." };
+        currentUser = user;
+        if(typeof currentUser.coins === 'undefined') currentUser.coins = 0;
+        if(typeof currentUser.level === 'undefined') currentUser.level = 1;
+        if(typeof currentUser.premium === 'undefined') currentUser.premium = false;
+        if(!currentUser.answeredIds) currentUser.answeredIds = [];
+        saveUsers();
+        return { success: true };
+    }
+    
+    function saveCurrentUser() { if(currentUser) { usersDB[currentUser.email] = currentUser; saveUsers(); } }
+    
+    // ------------------- PERMISSÃO SIMULADA -------------------
+    function requestPermissions() {
+        return new Promise((resolve) => {
+            let permDiv = document.createElement('div');
+            permDiv.className = 'perm-overlay';
+            permDiv.innerHTML = `
+                <div class="perm-card">
+                    <i class="fas fa-bell"></i>
+                    <h3>Permissão de Notificação</h3>
+                    <p>Para uma melhor experiência, deseja receber lembretes diários?</p>
+                    <button id="permAllow">Permitir</button>
+                    <button id="permDeny" style="background:#334155; margin-left:8px;">Agora não</button>
+                </div>
+            `;
+            document.body.appendChild(permDiv);
+            document.getElementById('permAllow').onclick = () => {
+                permDiv.remove();
+                if(Notification.permission !== 'granted') Notification.requestPermission();
+                showToast("Notificações ativadas! 🎉", "#22c55e");
+                resolve(true);
+            };
+            document.getElementById('permDeny').onclick = () => { permDiv.remove(); resolve(false); };
+        });
+    }
+    
+    // ------------------- LÓGICA INFINITA DO JOGO (integrada com conta) -------------------
+    let isPremium = false;
+    let userCoins = 0, userLevel = 1;
+    let answeredIds = [];
+    let currentPlayerName = "";
+    
+    function syncFromUser() {
+        if(!currentUser) return;
+        userCoins = currentUser.coins;
+        userLevel = currentUser.level;
+        isPremium = currentUser.premium;
+        answeredIds = [...(currentUser.answeredIds || [])];
+        currentPlayerName = currentUser.name || "Jogador";
+        document.getElementById("playerNameInput").value = currentPlayerName;
+        updateGameUI();
+    }
+    function syncToUser() {
+        if(!currentUser) return;
+        currentUser.coins = userCoins;
+        currentUser.level = userLevel;
+        currentUser.premium = isPremium;
+        currentUser.answeredIds = answeredIds;
+        currentUser.name = currentPlayerName;
+        saveCurrentUser();
+    }
+    function updateGameUI() {
+        document.getElementById("level").innerText = userLevel;
+        document.getElementById("coins").innerText = userCoins;
+        document.getElementById("premiumIcon").style.display = isPremium ? "flex" : "none";
+        let statusSpan = document.getElementById("premiumStatusText");
+        if(statusSpan) statusSpan.innerHTML = isPremium ? "✨ ATIVO! +50% + Dica ✨" : "🔓 Ative +50% moedas + Dica";
+        if(isPremium) document.body.classList.add('premium-bg'); else document.body.classList.remove('premium-bg');
+        let needed = 200;
+        let fill = (userCoins % needed) / needed * 100;
+        let fillDiv = document.getElementById("levelFill");
+        if(fillDiv) fillDiv.style.width = fill + "%";
+        updateRankDisplay();
+    }
+    
+    // Gerador procedural de perguntas (infinito)
+    function generateRandomQuestion(level) {
+        const type = Math.floor(Math.random() * 3);
+        const diff = Math.min(level, 10);
+        if(type === 0) {
+            if(Math.random() < 0.6) {
+                let ops = ['+','-','*'];
+                let op = ops[Math.floor(Math.random()*3)];
+                let maxNum = Math.min(5 + diff * 2, 50);
+                let a = Math.floor(Math.random() * maxNum) + 1;
+                let b = Math.floor(Math.random() * maxNum) + 1;
+                let answer;
+                if(op === '+') answer = a+b;
+                else if(op === '-') { if(a<b) [a,b]=[b,a]; answer = a-b; }
+                else answer = a*b;
+                let fake1 = answer + Math.floor(Math.random()*5)+1;
+                let fake2 = answer - (Math.floor(Math.random()*3)+1);
+                if(fake2<0) fake2=answer+1;
+                let opts = [answer, fake1, fake2];
+                opts.sort(()=>Math.random()-0.5);
+                return { q: `Quanto é ${a} ${op} ${b}?`, a: opts.map(String), c: opts.indexOf(answer), type:0, diff: Math.min(3+diff/2, 10) };
+            } else {
+                const bank = [
+                    {q:"Qual a capital do Brasil?", a:["Brasília","Rio","SP"], c:0},
+                    {q:"Quem pintou a Mona Lisa?", a:["Da Vinci","Van Gogh","Picasso"], c:0},
+                    {q:"Maior planeta?", a:["Júpiter","Saturno","Marte"], c:0}
+                ];
+                let base = bank[Math.floor(Math.random()*bank.length)];
+                return { ...base, type:0, diff: diff };
+            }
+        } else if(type === 1) {
+            let opts = diff<3 ? [["A Terra é plana", false], ["2+2=4", true], ["Água ferve a 100°C", true]] : [["Fotossíntese ocorre nas plantas", true], ["O maior osso é o fêmur", true]];
+            let pick = opts[Math.floor(Math.random()*opts.length)];
+            return { q: pick[0], a: ["Verdadeiro", "Falso"], c: pick[1]?0:1, type:1, diff: Math.min(2+diff/2,10) };
+        } else {
+            let bank = diff<3 ? [["2 + 2 = ___", "4"], ["Capital do Brasil: ___", "Brasília"]] : [["Raiz quadrada de 64: ___", "8"], ["O maior oceano: ___", "Pacífico"]];
+            let pick = bank[Math.floor(Math.random()*bank.length)];
+            return { q: pick[0], answer: pick[1].toLowerCase(), type:2, diff: Math.min(3+diff/1.5,10) };
+        }
+    }
+    
+    function getUniqueQuestion(level) {
+        for(let i=0;i<15;i++) {
+            let q = generateRandomQuestion(level);
+            let key = q.type === 2 ? `${q.q}|fill` : `${q.q}|${q.a.join()}`;
+            if(!answeredIds.includes(key)) return { ...q, key: key };
+        }
+        return { q: "2 + 2 = ?", a: ["3","4","5"], c:1, type:0, key: `fallback_${Date.now()}` };
+    }
+    function markAnswered(key) { if(!answeredIds.includes(key)) { answeredIds.push(key); syncToUser(); } }
+    
+    // Lógica do quiz
+    let currentQuestions = [], currentIdx = 0, currentScore = 0, quizActive = false, currentQuestionObj = null;
+    function buildQuiz() { let len = parseInt(document.getElementById("quizLengthSelect").value); let qs = []; for(let i=0;i<len;i++) qs.push(getUniqueQuestion(userLevel)); return qs; }
+    function startQuiz() { currentQuestions = buildQuiz(); if(!currentQuestions.length) return; currentIdx=0; currentScore=0; quizActive=true; document.getElementById("homeSection").classList.add("hidden"); document.getElementById("rankSection").classList.add("hidden"); document.getElementById("resultSection").classList.add("hidden"); document.getElementById("quizSection").classList.remove("hidden"); document.getElementById("qTotal").innerText = currentQuestions.length; loadQuestion(); }
+    function loadQuestion() { if(!quizActive) return; if(currentIdx >= currentQuestions.length) finishQuiz(); currentQuestionObj = currentQuestions[currentIdx]; document.getElementById("questionText").innerText = currentQuestionObj.q; document.getElementById("qCurrent").innerText = currentIdx+1; let stars = Math.min(5, Math.floor(currentQuestionObj.diff||1)); document.getElementById("difficultyBadge").innerHTML = `<i class="fas fa-layer-group"></i> Dificuldade ${stars}`; let typeName = currentQuestionObj.type===0?"Múltipla":(currentQuestionObj.type===1?"V/F":"Preenchimento"); document.getElementById("typeBadge").innerHTML = `<i class="fas fa-tag"></i> ${typeName}`; document.getElementById("optionsContainer").innerHTML = ""; document.getElementById("fillContainer").classList.add("hidden"); if(currentQuestionObj.type !== 2) { let optsHtml = ""; currentQuestionObj.a.forEach((opt,i)=>{ optsHtml += `<button class="option-btn" data-opt-index="${i}"><i class="fas fa-circle"></i> ${opt}</button>`; }); document.getElementById("optionsContainer").innerHTML = optsHtml; document.querySelectorAll('.option-btn').forEach(btn=>{ btn.onclick = ()=>handleAnswer(parseInt(btn.getAttribute('data-opt-index'))); }); } else { document.getElementById("fillContainer").classList.remove("hidden"); document.getElementById("submitFillBtn").onclick = ()=>{ let ans = document.getElementById("fillAnswer").value.trim().toLowerCase(); document.getElementById("fillAnswer").value = ""; if(quizActive) handleFillAnswer(ans); }; } let hintHtml = isPremium ? `<button id="hintButton" class="hint-btn"><i class="fas fa-lightbulb"></i> Dica (elimina errada)</button>` : ""; document.getElementById("premiumHintArea").innerHTML = hintHtml; if(isPremium) document.getElementById("hintButton")?.addEventListener("click", useHint); }
+    function handleAnswer(sel) { if(!quizActive) return; let correct = (sel === currentQuestionObj.c); if(correct) { currentScore++; addCoinsGame(50); markAnswered(currentQuestionObj.key); showToast("✅ +50 moedas!","#22c55e"); playSound('correct'); } else { showToast("❌ Errada!","#ef4444"); playSound('wrong'); } quizActive=false; setTimeout(()=>{ currentIdx++; quizActive=true; if(currentIdx<currentQuestions.length) loadQuestion(); else finishQuiz(); },550); }
+    function handleFillAnswer(ans) { if(!quizActive) return; let correct = (ans === currentQuestionObj.answer); if(correct) { currentScore++; addCoinsGame(50); markAnswered(currentQuestionObj.key); showToast("✅ +50 moedas!","#22c55e"); playSound('correct'); } else { showToast("❌ Errada!","#ef4444"); playSound('wrong'); } quizActive=false; setTimeout(()=>{ currentIdx++; quizActive=true; if(currentIdx<currentQuestions.length) loadQuestion(); else finishQuiz(); },550); }
+    function useHint() { if(currentQuestionObj.type===2) { showToast("💡 Dica: reflita sobre a resposta!","#facc15"); return; } let wrongs = []; for(let i=0;i<currentQuestionObj.a.length;i++) if(i!==currentQuestionObj.c) wrongs.push(i); if(wrongs.length){ let toRemove = wrongs[Math.floor(Math.random()*wrongs.length)]; let btns = document.querySelectorAll('.option-btn'); if(btns[toRemove]) { btns[toRemove].style.opacity = "0.4"; btns[toRemove].disabled = true; showToast("💡 Opção errada removida!","#facc15"); playSound('correct'); } } }
+    function addCoinsGame(amount) { let final = isPremium ? Math.floor(amount*1.5) : amount; userCoins += final; syncToUser(); updateGameUI(); spawnCoins(); recalcLevel(); }
+    function recalcLevel() { let newLevel = Math.floor(userCoins/200)+1; if(newLevel>userLevel) { userLevel=newLevel; showToast(`⬆️ Nível ${userLevel}! Dificuldade aumentada!`,"#facc15"); playSound('levelup'); triggerFireworks(); syncToUser(); updateGameUI(); } else { userLevel=newLevel; syncToUser(); updateGameUI(); } }
+    function finishQuiz() { let bonus = currentScore*15; if(bonus>0) addCoinsGame(bonus); playSound('complete'); document.getElementById("quizSection").classList.add("hidden"); document.getElementById("resultSection").classList.remove("hidden"); document.getElementById("finalScoreText").innerText = `Acertou ${currentScore}/${currentQuestions.length}`; let total = (currentScore*50)+(currentScore*15); if(isPremium) total = Math.floor(total*1.5); document.getElementById("coinsEarned").innerText = total; syncToUser(); updateRankDisplay(); triggerFireworks(); }
+    function updateRankDisplay() { let ranks = JSON.parse(localStorage.getItem("eduplay_rank_inf") || "[]"); if(!ranks.length) ranks=[{name:"👑 Rei",coins:800},{name:"⚡ Relâmpago",coins:620}]; let idx = ranks.findIndex(r=>r.name===currentPlayerName); if(idx!==-1) ranks[idx].coins = userCoins; else ranks.push({name:currentPlayerName,coins:userCoins}); ranks.sort((a,b)=>b.coins-a.coins); localStorage.setItem("eduplay_rank_inf",JSON.stringify(ranks)); let html=""; ranks.slice(0,12).forEach((p,i)=>{ let medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":"📌"; let isUser=(p.name===currentPlayerName); html+=`<li>${medal} ${isUser?'<i class="fas fa-user-astronaut"></i>':'<i class="fas fa-user-friends"></i>'} <strong>${p.name}</strong> <span>💰 ${p.coins} pts</span></li>`; }); document.getElementById("rankList").innerHTML = html; }
+    function triggerFireworks() { const canvas = document.getElementById('particleCanvas'); const ctx = canvas.getContext('2d'); canvas.width = window.innerWidth; canvas.height = window.innerHeight; let particles = []; for(let i=0;i<100;i++) particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height-canvas.height,size:Math.random()*7+2,color:`hsl(${Math.random()*360},80%,65%)`,speed:Math.random()*6+3}); let frame=0; function draw(){ ctx.clearRect(0,0,canvas.width,canvas.height); let alive=false; particles.forEach(p=>{ p.y+=p.speed; if(p.y<canvas.height+70) alive=true; ctx.fillStyle=p.color; ctx.fillRect(p.x,p.y,p.size,p.size/2); }); if(alive && frame<60) { requestAnimationFrame(draw); frame++; } else ctx.clearRect(0,0,canvas.width,canvas.height); } draw(); for(let s=0;s<30;s++){ let f=document.createElement('div'); f.className='firework'; f.style.left=Math.random()*window.innerWidth+'px'; f.style.top=Math.random()*window.innerHeight+'px'; f.style.background=`hsl(${Math.random()*360},80%,60%)`; document.body.appendChild(f); setTimeout(()=>f.remove(),1000); } }
+    function spawnCoins() { for(let i=0;i<8;i++){ let d=document.createElement('div'); d.className='floating-coin'; d.innerHTML='<i class="fas fa-coins"></i>'; d.style.left=Math.random()*window.innerWidth+'px'; d.style.bottom='20px'; document.body.appendChild(d); setTimeout(()=>d.remove(),1000); } }
+    let audioCtx = null; function playSound(t) { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); const osc = audioCtx.createOscillator(), gain = audioCtx.createGain(); osc.connect(gain); gain.connect(audioCtx.destination); gain.gain.setValueAtTime(0.2, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime+0.5); if(t==='correct'){ osc.frequency.value=880; osc.start(); osc.stop(audioCtx.currentTime+0.2); } else if(t==='wrong'){ osc.frequency.value=220; osc.start(); osc.stop(audioCtx.currentTime+0.3); } else if(t==='levelup'){ osc.frequency.value=659.25; osc.start(); osc.stop(audioCtx.currentTime+0.25); } else if(t==='complete'){ osc.frequency.value=523.25; osc.start(); osc.stop(audioCtx.currentTime+0.2); } }
+    function showToast(msg,color) { let t=document.createElement('div'); t.className='toast-feedback'; t.innerHTML=`<i class="fas fa-star"></i> ${msg}`; t.style.borderLeftColor=color; document.body.appendChild(t); setTimeout(()=>t.remove(),2000); }
+    
+    function goHome() { document.getElementById("homeSection").classList.remove("hidden"); document.getElementById("quizSection").classList.add("hidden"); document.getElementById("resultSection").classList.add("hidden"); document.getElementById("rankSection").classList.add("hidden"); quizActive=false; updateRankDisplay(); recalcLevel(); }
+    function showRank() { updateRankDisplay(); document.getElementById("homeSection").classList.add("hidden"); document.getElementById("quizSection").classList.add("hidden"); document.getElementById("resultSection").classList.add("hidden"); document.getElementById("rankSection").classList.remove("hidden"); }
+    
+    function initGameAfterLogin() {
+        syncFromUser();
+        document.getElementById("gameApp").classList.add("active");
+        document.getElementById("authScreen").style.display = "none";
+        document.getElementById("startQuizBtnHome").onclick = startQuiz;
+        document.getElementById("showRankBtnHome").onclick = showRank;
+        document.getElementById("exitQuizBtn").onclick = ()=>{ goHome(); showToast("Quiz cancelado","#facc15"); };
+        document.getElementById("restartQuizBtn").onclick = startQuiz;
+        document.getElementById("backHomeFromResult").onclick = goHome;
+        document.getElementById("backHomeFromRank").onclick = goHome;
+        document.getElementById("refreshRankBtn").onclick = ()=>{ updateRankDisplay(); showToast("Ranking atualizado!","#3b82f6"); };
+        document.getElementById("copyPaypalBtn").onclick = ()=>{ navigator.clipboard.writeText("t88952204@gmail.com").then(()=>showToast("E-mail copiado!","#facc15")); };
+        document.getElementById("activatePremiumBtn").onclick = ()=>{ if(!isPremium) { isPremium=true; syncToUser(); updateGameUI(); showToast("Game Pass ativado! +50% moedas","#facc15"); } else showToast("Premium já ativo","#facc15"); };
+        document.getElementById("playerNameInput").oninput = (e)=>{ currentPlayerName = e.target.value; syncToUser(); updateRankDisplay(); };
+        document.getElementById("logoutGameBtn").onclick = ()=>{ currentUser=null; document.getElementById("gameApp").classList.remove("active"); document.getElementById("authScreen").style.display = "block"; };
+        goHome();
+        requestPermissions();
+    }
+    
+    // Eventos de autenticação
+    function setupAuth() {
+        document.getElementById("goToRegister").onclick = ()=>{ document.getElementById("loginCard").classList.add("hidden"); document.getElementById("registerCard").classList.remove("hidden"); };
+        document.getElementById("goToLogin").onclick = ()=>{ document.getElementById("registerCard").classList.add("hidden"); document.getElementById("loginCard").classList.remove("hidden"); };
+        document.getElementById("loginBtn").onclick = ()=>{
+            let email = document.getElementById("loginEmail").value;
+            let pass = document.getElementById("loginPassword").value;
+            let res = loginUser(email, pass);
+            if(res.success) { initGameAfterLogin(); } else { document.getElementById("loginError").innerText = res.error; }
+        };
+        document.getElementById("registerBtn").onclick = ()=>{
+            let name = document.getElementById("regName").value;
+            let email = document.getElementById("regEmail").value;
+            let pass = document.getElementById("regPassword").value;
+            let res = registerUser(email, pass, name);
+            if(res.success) { document.getElementById("regError").innerText = ""; alert("Conta criada! Faça login."); document.getElementById("registerCard").classList.add("hidden"); document.getElementById("loginCard").classList.remove("hidden"); }
+            else { document.getElementById("regError").innerText = res.error; }
+        };
+    }
+    
+    window.addEventListener('load', () => {
+        loadUsers();
+        setupAuth();
+        setTimeout(() => {
+            document.getElementById("splash").classList.add("hidden");
+            setTimeout(()=> document.getElementById("splash").remove(), 1000);
+        }, 2000);
+    });
+</script>
+</body>
+</html>
